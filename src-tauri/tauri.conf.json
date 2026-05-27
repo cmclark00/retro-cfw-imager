@@ -24,7 +24,10 @@
     ],
     "security": {
       "csp": null
-    }
+    },
+    "plugins": [
+      "dialog"
+    ]
   },
   "bundle": {
     "active": true,

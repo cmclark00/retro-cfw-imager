@@ -478,9 +478,28 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   color: var(--muted-2);
 }
 
-.empty-state svg {
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 32px 0;
   color: var(--muted-2);
-  opacity: 0.3;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--surface-2);
+}
+
+.selection-card.full-width {
+  width: 100%;
+  margin-bottom: 24px;
 }
 
 .safe-chip.danger {

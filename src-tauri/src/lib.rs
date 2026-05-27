@@ -117,66 +117,73 @@ async fn flash_image<R: Runtime>(
     expected_sha256: String,
     drive_id: String,
 ) -> Result<(), String> {
-    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
-    
-    let filename = url.split('/').last().unwrap_or("image.tmp");
-    let dest_path = cache_dir.join(filename);
-
-    // 1. Download
-    app.emit("flash-progress", ProgressPayload {
-        stage: "downloading".to_string(),
-        percent: 0.0,
-        message: format!("Downloading {}", filename),
-    }).map_err(|e| e.to_string())?;
-
-    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
-    let total_size = response.content_length().unwrap_or(0);
-    let mut file = File::create(&dest_path).await.map_err(|e| e.to_string())?;
-    let mut downloaded: u64 = 0;
-    let mut stream = response.bytes_stream();
-
-    while let Some(item) = stream.next().await {
-        let chunk = item.map_err(|e| e.to_string())?;
-        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
-        downloaded += chunk.len() as u64;
+    let (extracted_path, is_temp) = if std::path::Path::new(&url).exists() {
+        // Local file
+        (std::path::PathBuf::from(url), false)
+    } else {
+        // Download logic
+        let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
         
-        if total_size > 0 {
-            let percent = (downloaded as f32 / total_size as f32) * 100.0;
-            app.emit("flash-progress", ProgressPayload {
-                stage: "downloading".to_string(),
-                percent,
-                message: format!("Downloading {} ({:.1}%)", filename, percent),
-            }).map_err(|e| e.to_string())?;
+        let filename = url.split('/').last().unwrap_or("image.tmp");
+        let dest_path = cache_dir.join(filename);
+
+        // 1. Download
+        app.emit("flash-progress", ProgressPayload {
+            stage: "downloading".to_string(),
+            percent: 0.0,
+            message: format!("Downloading {}", filename),
+        }).map_err(|e| e.to_string())?;
+
+        let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+        let total_size = response.content_length().unwrap_or(0);
+        let mut file = File::create(&dest_path).await.map_err(|e| e.to_string())?;
+        let mut downloaded: u64 = 0;
+        let mut stream = response.bytes_stream();
+
+        while let Some(item) = stream.next().await {
+            let chunk = item.map_err(|e| e.to_string())?;
+            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            downloaded += chunk.len() as u64;
+            
+            if total_size > 0 {
+                let percent = (downloaded as f32 / total_size as f32) * 100.0;
+                app.emit("flash-progress", ProgressPayload {
+                    stage: "downloading".to_string(),
+                    percent,
+                    message: format!("Downloading {} ({:.1}%)", filename, percent),
+                }).map_err(|e| e.to_string())?;
+            }
         }
-    }
 
-    // 2. Verify
-    app.emit("flash-progress", ProgressPayload {
-        stage: "verifying".to_string(),
-        percent: 0.0,
-        message: "Verifying checksum...".to_string(),
-    }).map_err(|e| e.to_string())?;
+        // 2. Verify
+        if expected_sha256 != "placeholder" && !expected_sha256.is_empty() {
+            app.emit("flash-progress", ProgressPayload {
+                stage: "verifying".to_string(),
+                percent: 0.0,
+                message: "Verifying checksum...".to_string(),
+            }).map_err(|e| e.to_string())?;
 
-    let mut file = std::fs::File::open(&dest_path).map_err(|e| e.to_string())?;
-    let mut hasher = Sha256::new();
-    std::io::copy(&mut file, &mut hasher).map_err(|e| e.to_string())?;
-    let hash = hasher.finalize();
-    let actual_sha256 = hex::encode(hash);
+            let mut file = std::fs::File::open(&dest_path).map_err(|e| e.to_string())?;
+            let mut hasher = Sha256::new();
+            std::io::copy(&mut file, &mut hasher).map_err(|e| e.to_string())?;
+            let hash = hasher.finalize();
+            let actual_sha256 = hex::encode(hash);
 
-    if actual_sha256 != expected_sha256 {
-        return Err(format!("SHA-256 mismatch! Expected {}, got {}", expected_sha256, actual_sha256));
-    }
+            if actual_sha256 != expected_sha256 {
+                return Err(format!("SHA-256 mismatch! Expected {}, got {}", expected_sha256, actual_sha256));
+            }
+        }
+        
+        (dest_path, true)
+    };
 
-    app.emit("flash-progress", ProgressPayload {
-        stage: "verified".to_string(),
-        percent: 100.0,
-        message: "Checksum verified successfully.".to_string(),
-    }).map_err(|e| e.to_string())?;
+    let filename = extracted_path.file_name().and_then(|n| n.to_str()).unwrap_or("image.img");
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
 
     // 3. Extract
     let ext = filename.split('.').last().unwrap_or("");
-    let extracted_path = if ext == "xz" || ext == "gz" {
+    let final_image_path = if ext == "xz" || ext == "gz" {
         let out_filename = filename.strip_suffix(&format!(".{}", ext)).unwrap_or("image.img");
         let out_path = cache_dir.join(out_filename);
         
@@ -186,7 +193,7 @@ async fn flash_image<R: Runtime>(
             message: format!("Extracting {}...", filename),
         }).map_err(|e| e.to_string())?;
 
-        let input_file = std::fs::File::open(&dest_path).map_err(|e| e.to_string())?;
+        let input_file = std::fs::File::open(&extracted_path).map_err(|e| e.to_string())?;
         let mut output_file = std::fs::File::create(&out_path).map_err(|e| e.to_string())?;
 
         if ext == "xz" {
@@ -205,7 +212,7 @@ async fn flash_image<R: Runtime>(
 
         out_path
     } else {
-        dest_path
+        extracted_path.clone()
     };
 
     // 4. Write
@@ -231,7 +238,7 @@ async fn flash_image<R: Runtime>(
                  # but for now we'll just wait for it to finish. \
              }} \
              $input.Close(); $output.Close();",
-            extracted_path.display().to_string().replace("\\", "\\\\"),
+            final_image_path.display().to_string().replace("\\", "\\\\"),
             drive_id.replace("\\", "\\\\")
         );
 
@@ -254,7 +261,7 @@ async fn flash_image<R: Runtime>(
 
         let status = std::process::Command::new("pkexec")
             .arg("dd")
-            .arg(format!("if={}", extracted_path.display()))
+            .arg(format!("if={}", final_image_path.display()))
             .arg(format!("of={}", drive_id))
             .arg("bs=4M")
             .arg("conv=fsync")
@@ -294,6 +301,7 @@ async fn fetch_manifest(url: String) -> Result<serde_json::Value, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![list_drives_preview, flash_image, fetch_manifest])
         .run(tauri::generate_context!())
         .expect("error while running Retro CFW Imager");

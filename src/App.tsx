@@ -1,10 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import { CheckCircle2, Download, HardDrive, Info, RadioTower, RefreshCw, Search, ShieldCheck, Sparkles, Usb, Zap } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-dialog';
+import { CheckCircle2, Download, FileCode, HardDrive, Info, RadioTower, RefreshCw, Search, ShieldCheck, Sparkles, Usb, Zap } from 'lucide-react';
+
 import { useEffect, useMemo, useState } from 'react';
 import { sampleManifest, type DemoDrive } from './data/sampleManifest';
 import { filterCompatibleDevices, getRecommendedRelease, searchDevices, type Device, type Firmware, type FirmwareManifest, type FirmwareRelease } from './lib/manifest';
 
-const DEFAULT_MANIFEST_URL = 'https://raw.githubusercontent.com/muOS-Custom-Firmware/retro-cfw-imager/main/manifest/index.json';
+const DEFAULT_MANIFEST_URL = 'https://raw.githubusercontent.com/cmclark00/retro-cfw-imager/master/manifest/index.json';
 
 type StepId = 'firmware' | 'device' | 'release' | 'drive' | 'confirm' | 'flash' | 'done';
 
@@ -185,8 +188,28 @@ export default function App() {
   const selectedDrive = drives.find((drive) => drive.id === selectedDriveId);
   const [isRefreshingDrives, setIsRefreshingDrives] = useState(false);
 
+  const [localFilePath, setLocalFilePath] = useState<string | null>(null);
+
   const [eraseConfirmed, setEraseConfirmed] = useState(false);
   const [flashError, setFlashError] = useState<string | null>(null);
+
+  const selectLocalFile = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Images',
+          extensions: ['img', 'gz', 'xz', '7z', 'zip']
+        }]
+      });
+      if (selected && !Array.isArray(selected)) {
+        setLocalFilePath(selected);
+        setStep('drive');
+      }
+    } catch (error) {
+      console.error('Failed to open file dialog:', error);
+    }
+  };
 
   const refreshDrives = async () => {
     setIsRefreshingDrives(true);
@@ -287,7 +310,21 @@ export default function App() {
                 <FirmwareCard key={firmware.id} firmware={firmware} selected={firmware.id === selectedFirmwareId} onSelect={() => selectFirmware(firmware)} />
               ))}
             </div>
-            <button className="primary-button" onClick={() => setStep('device')}>Continue to handheld</button>
+            
+            <div className="section-divider">
+              <span>OR</span>
+            </div>
+
+            <button className="selection-card drive-card full-width" onClick={selectLocalFile}>
+              <div className="drive-icon"><FileCode size={26} /></div>
+              <div style={{ textAlign: 'left' }}>
+                <div className="eyebrow">Advanced</div>
+                <h3>Flash from local file...</h3>
+                <p>Use your own .img, .gz, or .xz file from your computer.</p>
+              </div>
+            </button>
+
+            <button className="primary-button" onClick={() => { setLocalFilePath(null); setStep('device'); }}>Continue to handheld</button>
           </section>
         )}
 
@@ -362,12 +399,16 @@ export default function App() {
           </section>
         )}
 
-        {step === 'confirm' && selectedRelease && selectedDrive && (
+        {step === 'confirm' && (localFilePath || selectedRelease) && selectedDrive && (
           <section className="flow-section confirm-section">
             <div className="danger-panel">
               <h2>This will erase the selected SD card.</h2>
               <p><strong>{selectedDrive.displayName}</strong> · {formatBytes(selectedDrive.sizeBytes)} · {selectedDrive.mountpoints.join(', ')}</p>
-              <p>Image: {selectedFirmware?.name} {selectedRelease.version} for {selectedDevice?.brand} {selectedDevice?.name}</p>
+              {localFilePath ? (
+                <p>Image: Local file - {localFilePath.split(/[\\/]/).pop()}</p>
+              ) : (
+                <p>Image: {selectedFirmware?.name} {selectedRelease?.version} for {selectedDevice?.brand} {selectedDevice?.name}</p>
+              )}
               <label className="confirm-check"><input type="checkbox" checked={eraseConfirmed} onChange={(event) => setEraseConfirmed(event.target.checked)} /> I understand this erases the SD card and I have selected the correct drive.</label>
             </div>
             {flashError && <div className="info-callout danger" style={{ marginTop: '16px', color: 'var(--danger)', borderColor: 'var(--danger)' }}><Info size={18} /> {flashError}</div>}
@@ -375,11 +416,11 @@ export default function App() {
           </section>
         )}
 
-        {step === 'flash' && selectedRelease && selectedDrive && (
+        {step === 'flash' && (localFilePath || (selectedRelease && selectedDrive)) && (
           <FlashProcess 
-            url={selectedRelease.url} 
-            sha256={selectedRelease.sha256} 
-            driveId={selectedDrive.id} 
+            url={localFilePath || selectedRelease!.url} 
+            sha256={localFilePath ? 'placeholder' : selectedRelease!.sha256} 
+            driveId={selectedDrive!.id} 
             onDone={() => setStep('done')} 
             onError={(err) => { setFlashError(err); setStep('confirm'); }} 
           />
