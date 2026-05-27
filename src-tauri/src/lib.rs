@@ -26,12 +26,6 @@ struct ProgressPayload {
     message: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct DownloadArgs {
-    url: String,
-    sha256: String,
-}
-
 #[tauri::command]
 fn list_drives_preview() -> Vec<DrivePreview> {
     if cfg!(windows) {
@@ -117,7 +111,7 @@ async fn flash_image<R: Runtime>(
     expected_sha256: String,
     drive_id: String,
 ) -> Result<(), String> {
-    let (extracted_path, is_temp) = if std::path::Path::new(&url).exists() {
+    let (extracted_path, _is_temp) = if std::path::Path::new(&url).exists() {
         // Local file
         (std::path::PathBuf::from(url), false)
     } else {
