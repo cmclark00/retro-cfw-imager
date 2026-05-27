@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-27T12:00:00Z",
+  "firmwares": [
+    {
+      "id": "muos",
+      "name": "muOS (MustardOS)",
+      "website": "https://muos.dev",
+      "description": "Fast-booting, lightweight custom firmware for the Anbernic H700 series and more.",
+      "devices": [
+        {
+          "id": "anbernic-rg35xx-h",
+          "brand": "Anbernic",
+          "name": "RG35XX H",
+          "releases": [
+            {
+              "version": "v11 (Refried Beans)",
+              "url": "https://gofile.io/d/ghxsUH",
+              "sha256": "placeholder",
+              "notes": "Select the appropriate image from the GoFile link."
+            }
+          ]
+        },
+        {
+          "id": "anbernic-rg35xx-plus",
+          "brand": "Anbernic",
+          "name": "RG35XX PLUS",
+          "releases": [
+            {
+              "version": "v11 (Refried Beans)",
+              "url": "https://gofile.io/d/ghxsUH",
+              "sha256": "placeholder",
+              "notes": "Select the appropriate image from the GoFile link."
+            }
+          ]
+        },
+        {
+          "id": "anbernic-rg35xx-sp",
+          "brand": "Anbernic",
+          "name": "RG35XX SP",
+          "releases": [
+            {
+              "version": "v11 (Refried Beans)",
+              "url": "https://gofile.io/d/ghxsUH",
+              "sha256": "placeholder",
+              "notes": "Select the appropriate image from the GoFile link."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rocknix",
+      "name": "ROCKNIX",
+      "website": "https://rocknix.org",
+      "description": "An operating system for handheld gaming devices based on the RK3326, RK3566, and more.",
+      "devices": [
+        {
+          "id": "powkiddy-rgb30",
+          "brand": "Powkiddy",
+          "name": "RGB30",
+          "releases": [
+            {
+              "version": "20250517",
+              "url": "https://github.com/ROCKNIX/distribution/releases/download/20250517/ROCKNIX-RK3566.aarch64-20250517-Generic.img.gz",
+              "sha256": "placeholder",
+              "notes": "Official 20250517 release."
+            }
+          ]
+        },
+        {
+          "id": "anbernic-rg353p",
+          "brand": "Anbernic",
+          "name": "RG353P/M/V",
+          "releases": [
+            {
+              "version": "20250517",
+              "url": "https://github.com/ROCKNIX/distribution/releases/download/20250517/ROCKNIX-RK3566.aarch64-20250517-Generic.img.gz",
+              "sha256": "placeholder",
+              "notes": "Generic RK3566 image."
+            }
+          ]
+        },
+        {
+          "id": "anbernic-rg35xx-h-h700",
+          "brand": "Anbernic",
+          "name": "RG35XX H/PLUS/SP (H700)",
+          "releases": [
+            {
+              "version": "20250517",
+              "url": "https://github.com/ROCKNIX/distribution/releases/download/20250517/ROCKNIX-H700.aarch64-20250517.img.gz",
+              "sha256": "placeholder",
+              "notes": "Official H700 release."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "knulli",
+      "name": "KNULLI",
+      "website": "https://knulli.org",
+      "description": "A custom firmware for retro handhelds based on Batocera.",
+      "devices": [
+        {
+          "id": "trimui-smart-pro",
+          "brand": "TrimUI",
+          "name": "Smart Pro",
+          "releases": [
+            {
+              "version": "20250813",
+              "url": "https://github.com/knulli-cfw/distribution/releases/download/20250813/knulli-a133-trimui-smart-pro-gladiator-ii-20250812.img.gz",
+              "sha256": "placeholder",
+              "notes": "Gladiator II release."
+            }
+          ]
+        },
+        {
+          "id": "anbernic-rg35xx-sp-knulli",
+          "brand": "Anbernic",
+          "name": "RG35XX SP",
+          "releases": [
+            {
+              "version": "20250813",
+              "url": "https://github.com/knulli-cfw/distribution/releases/download/20250813/knulli-h700-rg35xx-sp-gladiator-ii-20250813.img.gz",
+              "sha256": "placeholder",
+              "notes": "Gladiator II release."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
