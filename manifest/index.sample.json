@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-22T00:00:00Z",
+  "firmwares": [
+    {
+      "id": "muos",
+      "name": "muOS",
+      "homepage": "https://muos.dev",
+      "description": "A fast, clean custom firmware for retro handhelds.",
+      "accentColor": "#f5c542",
+      "devices": [
+        {
+          "id": "anbernic-rg35xx-h",
+          "brand": "Anbernic",
+          "name": "RG35XX H",
+          "aliases": ["35XX H", "RG35XXH"],
+          "status": "stable",
+          "recommendedSdGb": 16,
+          "releases": [
+            {
+              "version": "sample-release",
+              "channel": "stable",
+              "date": "2026-05-22",
+              "url": "https://example.com/muos-rg35xx-h.img.xz",
+              "sizeBytes": 1234567890,
+              "sha256": "replace-with-real-sha256",
+              "compression": "xz",
+              "imageFormat": "raw",
+              "notes": "First boot may take several minutes. Keep the handheld plugged in."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rocknix",
+      "name": "ROCKNIX",
+      "homepage": "https://rocknix.org",
+      "description": "A Linux-based gaming firmware for many handheld devices.",
+      "accentColor": "#39a7ff",
+      "devices": []
+    },
+    {
+      "id": "knulli",
+      "name": "KNULLI",
+      "homepage": "https://knulli.org",
+      "description": "A Batocera-inspired custom firmware for retro handhelds.",
+      "accentColor": "#ff5c7a",
+      "devices": []
+    }
+  ]
+}

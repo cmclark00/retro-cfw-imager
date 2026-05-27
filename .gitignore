@@ -1,0 +1,21 @@
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Rust/Cargo
+/src-tauri/target/
+
+# Tauri
+/src-tauri/gen/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
