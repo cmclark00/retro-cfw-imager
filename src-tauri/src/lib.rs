@@ -1,5 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::Disks;
+use tauri::{Emitter, Manager, Runtime};
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+use futures_util::StreamExt;
+use sha2::{Sha256, Digest};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +16,20 @@ struct DrivePreview {
     is_system: bool,
     mountpoints: Vec<String>,
     bus_type: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ProgressPayload {
+    stage: String,
+    percent: f32,
+    message: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DownloadArgs {
+    url: String,
+    sha256: String,
 }
 
 #[tauri::command]
@@ -45,35 +64,12 @@ fn list_drives_preview() -> Vec<DrivePreview> {
         .collect()
 }
 
-use serde::{Deserialize, Serialize};
-use sysinfo::Disks;
-use tauri::{Emitter, Manager, Runtime};
-use std::path::PathBuf;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
-use futures_util::StreamExt;
-use sha2::{Sha256, Digest};
-
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ProgressPayload {
-    stage: String,
-    percent: f32,
-    message: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct DownloadArgs {
-    url: String,
-    sha256: String,
-}
-
 #[tauri::command]
 async fn flash_image<R: Runtime>(
     app: tauri::AppHandle<R>,
     url: String,
     expected_sha256: String,
-    _drive_id: String, // TODO: Use this for writing
+    drive_id: String,
 ) -> Result<(), String> {
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
@@ -170,20 +166,20 @@ async fn flash_image<R: Runtime>(
     app.emit("flash-progress", ProgressPayload {
         stage: "writing".to_string(),
         percent: 0.0,
-        message: format!("Writing to {}...", _drive_id),
+        message: format!("Writing to {}...", drive_id),
     }).map_err(|e| e.to_string())?;
 
     // Unmount first (Linux specific)
     let _ = std::process::Command::new("pkexec")
         .arg("umount")
-        .arg(&_drive_id)
-        .arg(format!("{}*", _drive_id)) // Try to unmount all partitions
+        .arg(&drive_id)
+        .arg(format!("{}*", drive_id)) // Try to unmount all partitions
         .status();
 
     let status = std::process::Command::new("pkexec")
         .arg("dd")
         .arg(format!("if={}", extracted_path.display()))
-        .arg(format!("of={}", _drive_id))
+        .arg(format!("of={}", drive_id))
         .arg("bs=4M")
         .arg("conv=fsync")
         .status()
