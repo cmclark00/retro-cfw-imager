@@ -24,10 +24,10 @@
     ],
     "security": {
       "csp": null
-    },
-    "plugins": [
-      "dialog"
-    ]
+    }
+  },
+  "plugins": {
+    "dialog": {}
   },
   "bundle": {
     "active": true,
