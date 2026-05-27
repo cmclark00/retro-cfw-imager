@@ -34,6 +34,52 @@ struct DownloadArgs {
 
 #[tauri::command]
 fn list_drives_preview() -> Vec<DrivePreview> {
+    if cfg!(windows) {
+        // Windows specific logic using PowerShell to get physical disks
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                "Get-Disk | Where-Object { $_.BusType -ne 'NVMe' -and $_.BusType -ne 'SATA' } | Select-Object Number, FriendlyName, Size, BusType, IsSystem, IsRemovable | ConvertTo-Json",
+            ])
+            .output();
+
+        if let Ok(output) = output {
+            let json_str = String::from_utf8_lossy(&output.stdout);
+            // If there's only one disk, PowerShell returns a single object instead of an array.
+            // Wrap it in [] if it doesn't start with [.
+            let normalized_json = if json_str.trim().starts_with('{') {
+                format!("[{}]", json_str)
+            } else {
+                json_str.to_string()
+            };
+
+            if let Ok(disks) = serde_json::from_str::<Vec<serde_json::Value>>(&normalized_json) {
+                return disks
+                    .iter()
+                    .map(|d| {
+                        let number = d["Number"].as_u64().unwrap_or(0);
+                        let name = d["FriendlyName"].as_str().unwrap_or("Unknown").to_string();
+                        let size = d["Size"].as_u64().unwrap_or(0);
+                        let bus_type = d["BusType"].as_str().unwrap_or("unknown").to_string();
+                        let is_system = d["IsSystem"].as_bool().unwrap_or(false);
+                        let is_removable = d["IsRemovable"].as_bool().unwrap_or(true);
+
+                        DrivePreview {
+                            id: format!("\\\\.\\PhysicalDrive{}", number),
+                            display_name: format!("Disk {}: {}", number, name),
+                            size_bytes: size,
+                            is_removable,
+                            is_system,
+                            mountpoints: vec![], // Harder to get in this one command
+                            bus_type,
+                        }
+                    })
+                    .collect();
+            }
+        }
+    }
+
+    // Fallback/Linux logic
     let disks = Disks::new_with_refreshed_list();
     disks
         .iter()
@@ -169,24 +215,55 @@ async fn flash_image<R: Runtime>(
         message: format!("Writing to {}...", drive_id),
     }).map_err(|e| e.to_string())?;
 
-    // Unmount first (Linux specific)
-    let _ = std::process::Command::new("pkexec")
-        .arg("umount")
-        .arg(&drive_id)
-        .arg(format!("{}*", drive_id)) // Try to unmount all partitions
-        .status();
+    if cfg!(windows) {
+        // Windows writing logic using PowerShell (needs Admin)
+        // We use a block-based copy for efficiency
+        let ps_script = format!(
+            "$input = [System.IO.File]::OpenRead('{}'); \
+             $output = [System.IO.File]::OpenWrite('{}'); \
+             $buffer = New-Object byte[] 4MB; \
+             $total = $input.Length; \
+             $done = 0; \
+             while (($read = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {{ \
+                 $output.Write($buffer, 0, $read); \
+                 $done += $read; \
+                 # We could emit progress here if we could talk back to Tauri, \
+                 # but for now we'll just wait for it to finish. \
+             }} \
+             $input.Close(); $output.Close();",
+            extracted_path.display().to_string().replace("\\", "\\\\"),
+            drive_id.replace("\\", "\\\\")
+        );
 
-    let status = std::process::Command::new("pkexec")
-        .arg("dd")
-        .arg(format!("if={}", extracted_path.display()))
-        .arg(format!("of={}", drive_id))
-        .arg("bs=4M")
-        .arg("conv=fsync")
-        .status()
-        .map_err(|e| e.to_string())?;
+        let status = std::process::Command::new("powershell")
+            .args(["-Command", &ps_script])
+            .status()
+            .map_err(|e| e.to_string())?;
 
-    if !status.success() {
-        return Err("Failed to write image to disk. Make sure you provided the correct password and the drive is not in use.".to_string());
+        if !status.success() {
+            return Err("Failed to write image. Please ensure you are running the app as Administrator.".to_string());
+        }
+    } else {
+        // Linux/Unix logic
+        // Unmount first (Linux specific)
+        let _ = std::process::Command::new("pkexec")
+            .arg("umount")
+            .arg(&drive_id)
+            .arg(format!("{}*", drive_id)) // Try to unmount all partitions
+            .status();
+
+        let status = std::process::Command::new("pkexec")
+            .arg("dd")
+            .arg(format!("if={}", extracted_path.display()))
+            .arg(format!("of={}", drive_id))
+            .arg("bs=4M")
+            .arg("conv=fsync")
+            .status()
+            .map_err(|e| e.to_string())?;
+
+        if !status.success() {
+            return Err("Failed to write image to disk. Make sure you provided the correct password and the drive is not in use.".to_string());
+        }
     }
 
     // 5. Eject (Safe unmount/sync)
